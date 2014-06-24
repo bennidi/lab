@@ -1,8 +1,8 @@
 package net.engio.lab;
 
+import net.engio.pips.lab.Benchmark;
 import net.engio.pips.lab.ExecutionContext;
 import net.engio.pips.lab.Executions;
-import net.engio.pips.lab.Experiment;
 import org.junit.Test;
 
 import java.util.Collection;
@@ -20,12 +20,12 @@ public class ExecutionContextTest extends UnitTest{
         Map<String, Object> bindings = new HashMap<String, Object>();
         bindings.put(ExecutionContext.class.toString(), ExecutionContext.class);
         bindings.put(UnitTest.class.toString(), UnitTest.class);
-        bindings.put(Experiment.class.toString(), Experiment.class);
+        bindings.put(Benchmark.class.toString(), Benchmark.class);
         return bindings;
     }
 
     private ExecutionContext getInitialContext(Map<String, Object> bindings){
-        ExecutionContext ctx = new ExecutionContext(new Experiment("test"));
+        ExecutionContext ctx = new ExecutionContext(new Benchmark("test"));
         ctx.bindAll(bindings);
 
         assertBindingsExist(bindings, ctx);
@@ -104,7 +104,7 @@ public class ExecutionContextTest extends UnitTest{
 
     @Test
     public void testGetMatching(){
-        ExecutionContext ctx = new ExecutionContext(new Experiment("test"));
+        ExecutionContext ctx = new ExecutionContext(new Benchmark("test"));
         Object[] bindings = new Object[]{"root", "root:lvl1", "root:lvl1:lvl2", "none"};
         ctx.bind(bindings);
 
@@ -130,7 +130,7 @@ public class ExecutionContextTest extends UnitTest{
 
     @Test
     public void testExecutions(){
-        ExecutionContext ctx = new ExecutionContext(new Experiment("test"));
+        ExecutionContext ctx = new ExecutionContext(new Benchmark("test"));
         Object[] bindings = new Object[]{"root", "root:lvl1", "root:lvl1:lvl2", "none"};
         ctx.bind(bindings);
 

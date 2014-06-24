@@ -1,6 +1,6 @@
 package net.engio.pips.reports;
 
-import net.engio.pips.lab.Experiment;
+import net.engio.pips.lab.Benchmark;
 
 /**
  * Take the benchmark and create some output. This may be everything from logging
@@ -11,5 +11,5 @@ import net.engio.pips.lab.Experiment;
  */
 public interface IReporter {
 
-    void generate(Experiment experiment) throws Exception;
+    void generate(Benchmark benchmark) throws Exception;
 }

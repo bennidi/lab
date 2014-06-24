@@ -1,7 +1,7 @@
 package net.engio.pips.reports;
 
 import net.engio.pips.data.IDataCollector;
-import net.engio.pips.lab.Experiment;
+import net.engio.pips.lab.Benchmark;
 
 import java.io.File;
 import java.io.PrintWriter;
@@ -12,20 +12,20 @@ import java.io.PrintWriter;
  */
 public class CSVFileExporter implements IReporter {
 
-    public void generate(Experiment experiment) throws Exception {
-        String reportDirectory = experiment.getReportBaseDir();
+    public void generate(Benchmark benchmark) throws Exception {
+        String reportDirectory = benchmark.getReportBaseDir();
         File report = new File(reportDirectory + "report.txt");
         PrintWriter writer = new PrintWriter(report);
         try {
 
             // write report header
             writer.println("###### EXPERIMENT ##########");
-            writer.println(experiment);
+            writer.println(benchmark);
 
             // write data of collectors
             writer.println();
             writer.println("##### COLLECTORS ########");
-            for (IDataCollector collector: experiment.getCollectors()) {
+            for (IDataCollector collector: benchmark.getCollectors()) {
                 writer.println(collector);
             }
 

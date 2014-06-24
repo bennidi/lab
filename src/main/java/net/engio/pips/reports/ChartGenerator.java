@@ -1,20 +1,20 @@
 package net.engio.pips.reports;
 
-import net.engio.pips.lab.Experiment;
+import net.engio.pips.lab.Benchmark;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.AxisLocation;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.time.TimeSeriesCollection;
 
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  *
@@ -50,29 +50,16 @@ public class ChartGenerator implements IReporter {
     }
 
 
-    /**
-     * Configure a new group that will be treated as a single dataset in the chart.
-     * Each dataset has its own range axis.
-     * @param collectorId : The id used to retrieve associated data collectors from the result collector
-     * @param groupLabel : The label used for the range axis
-     * @return
-     */
-    public SeriesGroup addGroup(String groupLabel, String collectorId){
-       SeriesGroup g = new SeriesGroup(groupLabel, collectorId);
-        groups.add(g);
-        return g;
-    }
-
-    public ChartGenerator add(SeriesGroup seriesGroup) {
+    public ChartGenerator draw(SeriesGroup seriesGroup) {
         groups.add(seriesGroup);
         return this;
     }
 
-    public void generate(Experiment experiment){
+    public void generate(Benchmark benchmark){
         Map<String, Integer> groupAxis = new HashMap<String, Integer>();
         // process default group
         SeriesGroup defaultGroup = this.groups.get(0);
-        TimeSeriesCollection collection = defaultGroup.createDataSet(experiment);
+        TimeSeriesCollection collection = defaultGroup.createDataSet(benchmark);
         int maxNumberOfDatapoints = defaultGroup.getSize();
         groupAxis.put(defaultGroup.getLabel(), 0);
 
@@ -94,20 +81,25 @@ public class ChartGenerator implements IReporter {
         plot.setDomainGridlinesVisible(true);
         plot.setDomainGridlinePaint(Color.BLACK);
         plot.setBackgroundPaint(Color.DARK_GRAY);
-
+        plot.setRenderer(0, getRandomRenderer());
         // add other groups
         List<SeriesGroup> groups = this.groups.subList(1, this.groups.size());
         int axisIndex = 1,
             dataSetIndex = 1;
         for(SeriesGroup group : groups){
-            plot.setDataset(dataSetIndex, group.createDataSet(experiment));
+            plot.setDataset(dataSetIndex, group.createDataSet(benchmark));
+            plot.setRenderer(dataSetIndex, getRandomRenderer());
+
             // if the group does not share a range axis with an already mapped group
             if(!groupAxis.containsKey(group.getLabel())){
                 final NumberAxis axis2 = new NumberAxis(group.getLabel());
                 // prevent the axis to be scaled from zero if the dataset begins with higher values
-                axis2.setAutoRangeIncludesZero(false);
+                axis2.setAutoRangeIncludesZero(true);
                 plot.setRangeAxis(axisIndex, axis2);
                 plot.mapDatasetToRangeAxis(dataSetIndex, axisIndex);
+                plot.setRangeAxisLocation(axisIndex, group.getOrientation() == SeriesGroup.Orientation.Left
+                        ? AxisLocation.BOTTOM_OR_LEFT
+                        : AxisLocation.BOTTOM_OR_RIGHT);
                 groupAxis.put(group.getLabel(), axisIndex); // remember this axis for subsequent groups
                 axisIndex++;
             }
@@ -124,12 +116,25 @@ public class ChartGenerator implements IReporter {
         int width = maxNumberOfDatapoints * pixelPerDatapoint;
 
         try {
-            String path = experiment.getReportBaseDir() + filename;
+            String path = benchmark.getReportBaseDir() + filename;
             ChartUtilities.saveChartAsJPEG(new File(path), chart, width <= 1024 ? 1024 : width, 1024);
         } catch (IOException e) {
             System.err.println("Problem occurred creating chart.");
         }
     }
 
+    private Random rand = new Random();
+    private Color getRandomColor(){
+        return new Color(Math.abs(rand.nextInt()) % 256,// r
+                Math.abs(rand.nextInt()) % 256, // g
+                Math.abs(rand.nextInt()) % 256); //b
+    }
+
+
+    private XYLineAndShapeRenderer getRandomRenderer(){
+        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
+        renderer.setSeriesPaint(0, getRandomColor());
+        return renderer;
+    }
 
 }

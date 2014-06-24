@@ -15,14 +15,14 @@ import java.util.*;
  */
 public class ExecutionContext {
 
-    private Experiment experiment;
+    private Benchmark benchmark;
     private ExecutionContext parent;
     private Map<String, Object> properties = new HashMap<String, Object>();
     private long started;
     private long finished;
 
-    public ExecutionContext(Experiment experiment) {
-        this.experiment = experiment;
+    public ExecutionContext(Benchmark benchmark) {
+        this.benchmark = benchmark;
     }
 
     public void started(){
@@ -43,15 +43,15 @@ public class ExecutionContext {
 
     public ExecutionTimer createExecutionTimer(String timerId){
         DataCollector<Long> timings = createLocalCollector(timerId);
-        Sampler sampler = Sampler.<Long>timeBased((Integer)get(Experiment.Properties.SampleInterval));
-        sampler.pipeInto(timings);
+        Sampler sampler = Sampler.<Long>timeBased((Integer)get(Benchmark.Properties.SampleInterval));
+        sampler.connectTo(timings);
         ExecutionTimer timer =  new ExecutionTimer(sampler);
         return timer;
     }
 
     public <V> DataCollector<V> createLocalCollector(String collectorId){
         DataCollector<V> collector = new DataCollector(collectorId);
-        bind(Experiment.Properties.ExecutionTimers + collectorId, collector);
+        bind(collectorId, collector);
         return collector;
     }
 
@@ -78,7 +78,7 @@ public class ExecutionContext {
 
 
     public ExecutionContext getChild(){
-        ExecutionContext child =  new ExecutionContext(experiment);
+        ExecutionContext child =  new ExecutionContext(benchmark);
         child.parent = this;
         return child;
     }

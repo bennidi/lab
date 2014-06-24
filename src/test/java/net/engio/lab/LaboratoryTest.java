@@ -1,7 +1,8 @@
 package net.engio.lab;
 
+import net.engio.pips.lab.Benchmark;
 import net.engio.pips.lab.ExecutionContext;
-import net.engio.pips.lab.Experiment;
+import net.engio.pips.lab.LabException;
 import net.engio.pips.lab.Laboratory;
 import net.engio.pips.lab.workload.*;
 import org.junit.Test;
@@ -29,8 +30,81 @@ public class LaboratoryTest extends UnitTest{
         }
     };
 
+    @Test
+    public void testInvalidWorkloadSetups() throws Exception {
+        Workload withoutFactory = new Workload("without factory")
+                .starts().immediately()
+                .duration().repetitions(1);
+
+        Workload withoutStart = new Workload("without start")
+                .setITaskFactory(NoOperation)
+                .duration().repetitions(1);
+
+        Workload withoutDuration = new Workload("without duration")
+                .starts().immediately()
+                .setITaskFactory(NoOperation);
 
 
+        Workload cyclicStart1 = new Workload("without duration");
+        Workload cyclicStart2 = new Workload("without duration");
+        cyclicStart1
+                .starts().after(cyclicStart2)
+                .duration().repetitions(1)
+                .setITaskFactory(NoOperation);
+        cyclicStart2
+                .starts().after(cyclicStart1)
+                .duration().repetitions(1)
+                .setITaskFactory(NoOperation);
+
+        Workload cyclicDuration1 = new Workload("without duration");
+        Workload cyclicDuration2 = new Workload("without duration");
+        cyclicDuration1
+                .starts().immediately()
+                .duration().depends(cyclicDuration2)
+                .setITaskFactory(NoOperation);
+        cyclicDuration2
+                .starts().immediately()
+                .duration().depends(cyclicDuration1)
+                .setITaskFactory(NoOperation);
+
+        Laboratory lab = new Laboratory();
+
+        try {
+            lab.run(new Benchmark("Invalid").addWorkload(withoutFactory));
+            fail();
+        } catch (LabException e) {
+            assertEquals(e.getCode(), LabException.ErrorCode.WLWithoutFactory);
+        }
+
+        try {
+            lab.run(new Benchmark("Invalid").addWorkload(withoutStart));
+            fail();
+        } catch (LabException e) {
+            assertEquals(e.getCode(), LabException.ErrorCode.WLWithoutStart);
+        }
+
+        try {
+            lab.run(new Benchmark("Invalid").addWorkload(withoutDuration));
+            fail();
+        } catch (LabException e) {
+            assertEquals(e.getCode(), LabException.ErrorCode.WLWithoutDuration);
+        }
+
+        try {
+            lab.run(new Benchmark("Invalid").addWorkload(cyclicStart1, cyclicStart2));
+            fail();
+        } catch (LabException e) {
+            assertEquals(e.getCode(), LabException.ErrorCode.WLWithCycleInStart);
+        }
+
+        try {
+            lab.run(new Benchmark("Invalid").addWorkload(cyclicDuration1, cyclicDuration2));
+            fail();
+        } catch (LabException e) {
+            assertEquals(e.getCode(), LabException.ErrorCode.WLWithCycleInDuration);
+        }
+
+    }
 
     @Test
     public void testWorkloadSchedulingStartingAfter() throws Exception {
@@ -75,17 +149,18 @@ public class LaboratoryTest extends UnitTest{
                 .starts().after(first);
 
         Laboratory lab  = new Laboratory();
-        lab.run(new Experiment("test").addWorkload(first, second));
+        lab.run(new Benchmark("test").addWorkload(first, second));
 
         Thread.sleep(100);
         // both have run in the end
         assertEquals(0, counter.get());
     }
 
-    @Test
-    public void testWorkloadShutdownCancelsTasks() throws Exception {
-        final AtomicInteger counter = new AtomicInteger(1);
-        Workload countUp = new Workload("First workload")
+    //@Test
+    // TODO: this invalid start/end dependency tree must be fixed
+    public void testWorkloadSchedulingStartingAfterDelayed() throws Exception {
+        final AtomicInteger counter = new AtomicInteger(0);
+        Workload first = new Workload("First workload")
                 .setParallelTasks(15)
                 .setITaskFactory(new ITaskFactory() {
                     @Override
@@ -94,6 +169,58 @@ public class LaboratoryTest extends UnitTest{
                             @Override
                             public void run(ExecutionContext context) throws Exception {
                                 counter.incrementAndGet();
+                            }
+                        };
+                    }
+                })
+                .duration().repetitions(1)
+                .starts().after(2, TimeUnit.SECONDS);
+
+        Workload second = new Workload("Second Workload")
+                .setParallelTasks(15)
+                .setITaskFactory(new ITaskFactory() {
+                    @Override
+                    public ITask create(ExecutionContext context) {
+                        return new ITask() {
+                            @Override
+                            public void run(ExecutionContext context) throws Exception {
+                                counter.decrementAndGet();
+                            }
+                        };
+                    }
+                })
+                .handle(ExecutionEvent.WorkloadInitialization, new ExecutionHandler() {
+                    @Override
+                    public void handle(ExecutionContext context) {
+                        // the first workload
+                        assertEquals(15, counter.get());
+                    }
+                })
+                .duration().depends(first)
+                .starts().after(first);
+
+        Laboratory lab  = new Laboratory();
+        lab.run(new Benchmark("test").addWorkload(first, second));
+
+        Thread.sleep(4000);
+        // both have run in the end
+        assertEquals(0, counter.get());
+    }
+
+    @Test
+    public void testWorkloadShutdownCancelsTasks() throws Exception {
+        final AtomicInteger first = new AtomicInteger(1);
+        final AtomicInteger second = new AtomicInteger(1);
+
+        Workload countUp = new Workload("First workload")
+                .setParallelTasks(15)
+                .setITaskFactory(new ITaskFactory() {
+                    @Override
+                    public ITask create(ExecutionContext context) {
+                        return new ITask() {
+                            @Override
+                            public void run(ExecutionContext context) throws Exception {
+                                first.incrementAndGet();
                             }
                         };
                     }
@@ -109,7 +236,7 @@ public class LaboratoryTest extends UnitTest{
                         return new ITask() {
                             @Override
                             public void run(ExecutionContext context) throws Exception {
-                                counter.decrementAndGet();
+                                second.incrementAndGet();
                             }
                         };
                     }
@@ -118,14 +245,16 @@ public class LaboratoryTest extends UnitTest{
                 .starts().immediately();
 
         Laboratory lab  = new Laboratory();
-        lab.run(new Experiment("test").addWorkload(countUp, countDown));
+        lab.run(new Benchmark("test").addWorkload(countUp, countDown));
 
-        int count = counter.get();
+        int firstVal = first.get();
+        int secondVal = second.get();
         // no threads that change the counter are running anymore
         Thread.sleep(1000);
-        assertEquals(count, counter.get());
-        // both have run in the end
-        assertTrue(counter.get() < 16);
+        assertEquals(firstVal, first.get());
+        assertEquals(secondVal, second.get());
+        assertTrue(firstVal > 1);
+        assertTrue(secondVal > 1);
     }
 
     @Test
@@ -166,7 +295,7 @@ public class LaboratoryTest extends UnitTest{
                 .starts().immediately();
 
         Laboratory lab  = new Laboratory();
-        lab.run(new Experiment("test").addWorkload(first, second));
+        lab.run(new Benchmark("test").addWorkload(first, second));
 
         // first workload has run at least duration seconds
         assertTrue(finish.get() - start.get() >= duration * 1000);
@@ -203,7 +332,7 @@ public class LaboratoryTest extends UnitTest{
                 });
 
         Laboratory lab  = new Laboratory();
-        lab.run(new Experiment("test").addWorkload(first, second, third));
+        lab.run(new Benchmark("test").addWorkload(first, second, third));
 
         assertTrue(finished.get());
     }

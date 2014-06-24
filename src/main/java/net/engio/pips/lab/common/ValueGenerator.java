@@ -1,4 +1,4 @@
-package net.engio.pips.lab;
+package net.engio.pips.lab.common;
 
 /**
  *

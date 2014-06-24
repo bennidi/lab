@@ -1,4 +1,4 @@
-package net.engio.pips.lab;
+package net.engio.pips.lab.common;
 
 import java.util.Arrays;
 import java.util.Random;
